@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv)
 {
-    Analyzer analyzer;
+    machXplorer::Analyzer analyzer;
     analyzer.processCLArguments(argc, argv);
 
     return 0;

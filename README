@@ -28,7 +28,9 @@ git clone https://github.com/yourusername/MachXplorer.git
 cd MachXplorer
 
 # Compile the project
-make
+mkdir build && cd build 
+cmake ..
+cmake --build .
 
 # Run MachXplorer
 ./MachXplorer -h <file.macho>
@@ -62,6 +64,20 @@ make
 ```
 
 ## Roadmap
+
+## Ressource
+
+📌 macOS System Header Files
+ • Located on macOS at:
+
+```sh
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/mach-o/
+```
+
+These headers include:
+ • `mach-o/loader.h` (Load commands)
+ • `mach-o/nlist.h` (Symbol table structures)
+ • `mach-o/fat.h` (Fat binary structures)
 
 -
 
