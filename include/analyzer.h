@@ -34,11 +34,18 @@ namespace machXplorer
     private:
         void analyzeHeader(const std::string &file);
         void analyzeSegment(const std::string &file);
+        void analyzeSection(const std::string &file);
         void analyzeSymbol(const std::string &file);
         void analyzeDisassembly(const std::string &file);
         void analyzeObfuscation(const std::string &file);
         void analyzeHexDump(const std::string &file);
+
+        // Functions to print the Mach-O header information
+        void printSectionInfo(const section_64 *section64);
         void printHeaderInfo(const mach_header_64 *header64);
+        void printSegmentInfo(const segment_command_64 *segment64);
+        void printSymbolInfo(const symtab_command &symtab64);
+        void printDisassemblyInfo(const dysymtab_command &dysymtab);
     };
 
 } // namespace machXplorer

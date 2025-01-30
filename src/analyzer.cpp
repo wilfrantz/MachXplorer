@@ -205,9 +205,130 @@ namespace machXplorer
         std::cout << "  Flags: " << header->flags << "\n";
     }
 
-    void Analyzer::analyzeSegment(const std::string &file) {}
-    void Analyzer::analyzeSymbol(const std::string &file) {}
-    void Analyzer::analyzeDisassembly(const std::string &file) {}
+    void Analyzer::analyzeSegment(const std::string &file)
+    {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (!fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+
+        segment_command_64 segment64;
+        fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
+
+        printSegmentInfo(&segment64);
+
+        fileStream.close();
+    }
+
+    void Analyzer::printSegmentInfo(const segment_command_64 *segment64)
+    {
+        std::cout << "[+] Segment Information:\n";
+        std::cout << "  Segment Name: " << segment64->segname << "\n";
+        std::cout << "  VM Address: " << segment64->vmaddr << "\n";
+        std::cout << "  VM Size: " << segment64->vmsize << "\n";
+        std::cout << "  File Offset: " << segment64->fileoff << "\n";
+        std::cout << "  File Size: " << segment64->filesize << "\n";
+        std::cout << "  Max VM Protection: " << segment64->maxprot << "\n";
+        std::cout << "  Initial VM Protection: " << segment64->initprot << "\n";
+        std::cout << "  Number of Sections: " << segment64->nsects << "\n";
+        std::cout << "  Flags: " << segment64->flags << "\n";
+    }
+
+    void Analyzer::analyzeSection(const std::string &file)
+    {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (!fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+
+        section_64 *section64;
+        fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
+
+        printSectionInfo(section64);
+
+        fileStream.close();
+    }
+
+    void Analyzer::printSectionInfo(const section_64 *section64)
+    {
+        std::cout << "[+] Section Information:\n";
+        std::cout << "  Section Name: " << section64->sectname << "\n";
+        std::cout << "  Segment Name: " << section64->segname << "\n";
+        std::cout << "  Address: " << section64->addr << "\n";
+        std::cout << "  Size: " << section64->size << "\n";
+        std::cout << "  Offset: " << section64->offset << "\n";
+        std::cout << "  Alignment: " << section64->align << "\n";
+        std::cout << "  Number of Relocation Entries: " << section64->nreloc << "\n";
+        std::cout << "  Flags: " << section64->flags << "\n";
+    }
+    void Analyzer::analyzeSymbol(const std::string &file)
+    {
+        std::ifstream filestream(file, std::ios::binary);
+        if (!filestream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+
+        symtab_command symtab;
+        filestream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
+
+        printSymbolInfo(symtab);
+        filestream.close();
+    }
+
+    void Analyzer::printSymbolInfo(const symtab_command &symtab64)
+    {
+        std::cout << "[+] Symbol Information:\n";
+        std::cout << "  Symbol Table Offset: " << symtab64.symoff << "\n";
+        std::cout << "  Number of Symbols: " << symtab64.nsyms << "\n";
+        std::cout << "  String Table Offset: " << symtab64.stroff << "\n";
+        std::cout << "  String Table Size: " << symtab64.strsize << "\n";
+    }
+
+    void Analyzer::analyzeDisassembly(const std::string &file) {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (!fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+
+        dysymtab_command dysymtab;
+        fileStream.read(reinterpret_cast<char *>(&dysymtab), sizeof(dysymtab));
+        printDisassemblyInfo(dysymtab);
+
+        fileStream.close();
+    }
+
+    void Analyzer::printDisassemblyInfo(const dysymtab_command &dysymtab)
+    {
+        std::cout << "[+] Disassembly Information:\n";
+        std::cout << "  Command: " << dysymtab.cmd << "\n";
+        std::cout << "  Command Size: " << dysymtab.cmdsize << "\n";
+        std::cout << " Index of local symbols: " << dysymtab.ilocalsym << "\n";
+        std::cout << " Number of local symbols: " << dysymtab.nlocalsym << "\n";
+        std::cout << " Index of external symbols: " << dysymtab.iextdefsym << "\n";
+        std::cout << " Number of external symbols: " << dysymtab.nextdefsym << "\n";
+        std::cout << " Index of undefined symbols: " << dysymtab.iundefsym << "\n";
+        std::cout << " Number of undefined symbols: " << dysymtab.nundefsym << "\n";
+        std::cout << " File offset to table of contents: " << dysymtab.tocoff << "\n";
+        std::cout << " Number of entries in table of contents: " << dysymtab.ntoc << "\n";
+        std::cout << " File offset to module table: " << dysymtab.modtaboff << "\n";
+        std::cout << " Number of module table entries: " << dysymtab.nmodtab << "\n";
+        std::cout << " File offset to reference symbol table: " << dysymtab.extrefsymoff << "\n";
+        std::cout << " Number of entries in reference symbol table: " << dysymtab.nextrefsyms << "\n";
+        std::cout << " File offset to indirect symbol table: " << dysymtab.indirectsymoff << "\n";
+        std::cout << " Number of entries in indirect symbol table: " << dysymtab.nindirectsyms << "\n";
+        std::cout << " File offset to external relocation entries: " << dysymtab.extreloff << "\n";
+        std::cout << " Number of external relocation entries: " << dysymtab.nextrel << "\n";
+        std::cout << " File offset to local relocation entries: " << dysymtab.locreloff << "\n";
+        std::cout << " Number of local relocation entries: " << dysymtab.nlocrel << "\n";
+    }
     void Analyzer::analyzeObfuscation(const std::string &file) {}
     void Analyzer::analyzeHexDump(const std::string &file) {}
 
