@@ -1,7 +1,12 @@
 #pragma once
 
 #include <iostream>
+#include <regex>
+#include <string>
+#include <cstdlib>
+#include <vector>
 #include <fstream>
+#include <mach-o/nlist.h>
 #include <mach-o/loader.h>
 
 namespace machXplorer
@@ -39,6 +44,13 @@ namespace machXplorer
         void analyzeDisassembly(const std::string &file);
         void analyzeObfuscation(const std::string &file);
         void analyzeHexDump(const std::string &file);
+        std::vector<std::string> extractSymbolTable(const std::string &file);
+        bool isIndirectCall(const std::string &instruction);
+        int countJumpInstructions(const std::vector<std::string> &disassembly);
+        bool isSuspiciousSegment(const std::string &segment);
+        std::vector<std::string> extractDylibFunctions(const std::string &file);
+        std::vector<std::string> extractStrings(const std::string &file);
+        bool missingCommonStrings(const std::vector<std::string> &strings);
 
         // Functions to print the Mach-O header information
         void printSectionInfo(const section_64 *section64);

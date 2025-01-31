@@ -1,3 +1,4 @@
+
 #include "analyzer.h"
 
 namespace machXplorer
@@ -132,32 +133,6 @@ namespace machXplorer
         }
     }
 
-    void Analyzer::compareMachOBinaries(const std::string &file1, const std::string &file2)
-    {
-
-        if (file1.empty() || file2.empty())
-        {
-            std::cerr << "[-] Error: Missing file(s).\n";
-            EXIT_FAILURE;
-        }
-
-        std::ifstream file1Stream(file1, std::ios::binary);
-        std::ifstream file2Stream(file2, std::ios::binary);
-
-        if (!file1Stream.is_open() || !file2Stream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file(s).\n";
-            EXIT_FAILURE;
-        }
-
-        // TODO: Compare the two files.
-        // ...
-        std::printf("[+] Comparing %s and %s\n", file1.c_str(), file2.c_str());
-
-        file1Stream.close();
-        file2Stream.close();
-    }
-
     /***
      * Analyze the header of a Mach-O binary file.
      * This function extracts and displays the Mach-O headers,
@@ -290,7 +265,8 @@ namespace machXplorer
         std::cout << "  String Table Size: " << symtab64.strsize << "\n";
     }
 
-    void Analyzer::analyzeDisassembly(const std::string &file) {
+    void Analyzer::analyzeDisassembly(const std::string &file)
+    {
         std::ifstream fileStream(file, std::ios::binary);
         if (!fileStream.is_open())
         {
@@ -329,7 +305,131 @@ namespace machXplorer
         std::cout << " File offset to local relocation entries: " << dysymtab.locreloff << "\n";
         std::cout << " Number of local relocation entries: " << dysymtab.nlocrel << "\n";
     }
-    void Analyzer::analyzeObfuscation(const std::string &file) {}
+
+    void Analyzer::analyzeObfuscation(const std::string &file)
+    {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (!fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+
+        // NOTE: Step 1 Check for Stripped Symbols
+        auto symbols = extractSymbolTable(file);
+        if (symbols.empty())
+            std::cout << "[!] Warning: Symbols are stripped, possible obfuscation detected.\n";
+
+        // NOTE Step 2 Detect Mangled or Obfuscated Symbols
+        std::regex mangledPattern("_Z[0-9A-Za-z_]+$");
+        for (const auto &symbol : symbols)
+        {
+            if (std::regex_match(symbol, mangledPattern))
+            {
+                std::cout << "[!] Obfuscated symbol detected: " << symbol << "\n";
+            }
+        }
+
+        // NOTE: Step 3 Detect Hidden Functions
+        std::vector<std::string> disassembly = {/* TODO: Call a disassembly function */};
+        for (const auto &instruction : disassembly)
+        {
+            if (isIndirectCall(instruction))
+            {
+                std::cout << "[!] Potential obfuscation: Indirect call detected at " << instruction << "\n";
+            }
+        }
+
+        // NOTE: Step 4 Detect Excessive Jump Instructions
+        int jumpCount = countJumpInstructions(disassembly);
+        if (jumpCount > 50)
+        {
+            std::cout << "[!] Warning: Unusual number of jump instructions detected.\n";
+        }
+
+        // Step 5: Identify Packed or Encrypted Sections
+        std::vector<std::string> segments = {/* Extract segment information */};
+        for (const auto &segment : segments)
+        {
+            if (isSuspiciousSegment(segment))
+            {
+                std::cout << "[!] Potential packing or encryption detected in segment: " << segment << "\n";
+            }
+        }
+
+        // Step 6: Scan for Dynamic API Resolution
+        std::vector<std::string> dylibFunctions = extractDylibFunctions(file);
+        for (const auto &function : dylibFunctions)
+        {
+            if (function == "dlopen" || function == "dlsym" || function == "objc_msgSend")
+            {
+                std::cout << "[!] Suspicious dynamic API resolution detected: " << function << "\n";
+            }
+        }
+
+        // Step 7: Analyze String Table for Encrypted Strings
+        std::vector<std::string> strings = extractStrings(file);
+        if (missingCommonStrings(strings))
+        {
+            std::cout << "[!] Potential encrypted strings detected.\n";
+        }
+
+        std::cout << "[+] Obfuscation analysis completed.\n";
+    }
+
+    std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
+    {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            exit(EXIT_FAILURE);
+        }
+        symtab_command symtab;
+        fileStream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
+
+        std::vector<std::string> symbols;
+        for (int i = 0; i < symtab.nsyms; i++)
+        {
+            nlist_64 symbol;
+            fileStream.read(reinterpret_cast<char *>(&symbol), sizeof(symbol));
+            symbols.push_back(std::to_string(symbol.n_un.n_strx));
+        }
+        return symbols;
+    }
+
     void Analyzer::analyzeHexDump(const std::string &file) {}
+    bool Analyzer::isIndirectCall(const std::string &instruction) {}
+    int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly) {}
+    bool Analyzer::isSuspiciousSegment(const std::string &segment) {}
+    std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file) {}
+    std::vector<std::string> Analyzer::extractStrings(const std::string &file) {}
+    bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings) {}
+
+    void Analyzer::compareMachOBinaries(const std::string &file1, const std::string &file2)
+    {
+
+        if (file1.empty() || file2.empty())
+        {
+            std::cerr << "[-] Error: Missing file(s).\n";
+            EXIT_FAILURE;
+        }
+
+        std::ifstream file1Stream(file1, std::ios::binary);
+        std::ifstream file2Stream(file2, std::ios::binary);
+
+        if (!file1Stream.is_open() || !file2Stream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file(s).\n";
+            EXIT_FAILURE;
+        }
+
+        // TODO: Compare the two files.
+        // ...
+        std::printf("[+] Comparing %s and %s\n", file1.c_str(), file2.c_str());
+
+        file1Stream.close();
+        file2Stream.close();
+    }
 
 } // namespace machXplorer
