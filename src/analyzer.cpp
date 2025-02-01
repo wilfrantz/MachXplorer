@@ -4,6 +4,17 @@
 namespace machXplorer
 {
 
+    std::ifstream Analyzer::openFileStream(const std::string &file)
+    {
+        std::ifstream fileStream(file, std::ios::binary);
+        if (!fileStream.is_open())
+        {
+            std::cerr << "[-] Error: Unable to open file.\n";
+            throw std::runtime_error("Error: Unable to open file.");
+        }
+        return fileStream;
+    }
+
     void Analyzer::printHelpMenu(char **argv)
     {
         std::cout
@@ -125,7 +136,7 @@ namespace machXplorer
             compareMachOBinaries(file, file2);
             break;
         case AnalysisType::HELP:
-            // NOTE: No need to implement help menu here.
+            // NOTE: No need to call help, case here to turn off Compiler warning
             break;
         case AnalysisType::INVALID:
             std::cerr << "[-] Error: Invalid option provided.\n";
@@ -143,7 +154,8 @@ namespace machXplorer
     void Analyzer::analyzeHeader(const std::string &file)
     {
         std::cout << "[+] Analyzing header of file: " << file << std::endl;
-        std::ifstream fileStream(file, std::ios::binary);
+        // std::ifstream fileStream(file, std::ios::binary);
+        auto fileStream = openFileStream(file);
 
         if (!fileStream.is_open())
         {
@@ -347,7 +359,7 @@ namespace machXplorer
             std::cout << "[!] Warning: Unusual number of jump instructions detected.\n";
         }
 
-        // Step 5: Identify Packed or Encrypted Sections
+        // NOTE: Step 5 Identify Packed or Encrypted Sections
         std::vector<std::string> segments = {/* Extract segment information */};
         for (const auto &segment : segments)
         {
@@ -357,7 +369,7 @@ namespace machXplorer
             }
         }
 
-        // Step 6: Scan for Dynamic API Resolution
+        // NOTE: Step 6 Scan for Dynamic API Resolution
         std::vector<std::string> dylibFunctions = extractDylibFunctions(file);
         for (const auto &function : dylibFunctions)
         {
@@ -367,7 +379,7 @@ namespace machXplorer
             }
         }
 
-        // Step 7: Analyze String Table for Encrypted Strings
+        // NOTE Step 7 Analyze String Table for Encrypted Strings
         std::vector<std::string> strings = extractStrings(file);
         if (missingCommonStrings(strings))
         {
@@ -375,16 +387,61 @@ namespace machXplorer
         }
 
         std::cout << "[+] Obfuscation analysis completed.\n";
-    }
+    } // !Analyzer::analyzeObfuscation
+
+    std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
+    {
+        /*
+        * method disassembleBinary(file: string) -> list of instructions:
+    open the Mach-O binary file
+
+    # Step 1: Load the executable sections
+    loadCommands = extractLoadCommands(file)
+    textSection = findSection(loadCommands, "__TEXT", "__text")
+
+    if textSection is empty:
+        print "Error: No executable section found."
+        return empty list
+
+    # Step 2: Read the raw bytes of the __TEXT.__text section
+    rawBytes = readBytes(file, textSection.offset, textSection.size)
+
+    # Step 3: Convert raw bytes into assembly instructions
+    instructions = []
+    offset = 0
+    while offset < textSection.size:
+        instruction = decodeInstruction(rawBytes, offset)
+        if instruction is valid:
+            instructions.append(instruction)
+        offset += instruction.size  # Move to the next instruction
+
+    return instructions
+        * */
+        // NOTE:  Step 1 Load the executable sections
+        auto fileStream = openFileStream(file);
+
+
+        mach_header_64 header64;
+        fileStream.read(reinterpret_cast<char *>(&header64), sizeof(header64));
+
+        auto loadCommands = header64.ncmds;
+        for (int i = 0; i < loadCommands; i++)
+        {
+
+        }
+
+        // NOTE: Step 2 Read the raw bytes of the __TEXT.__text section
+        std::vector<std::string> instructions;
+
+        fileStream.close();
+
+        return instructions;
+    } // !Analyzer::disassembleMachOFile
 
     std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
     {
-        std::ifstream fileStream(file, std::ios::binary);
-        if (fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
+
         symtab_command symtab;
         fileStream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
 
@@ -396,15 +453,48 @@ namespace machXplorer
             symbols.push_back(std::to_string(symbol.n_un.n_strx));
         }
         return symbols;
+    } // !Analyzer::extractSymbolTable
+
+    void Analyzer::analyzeHexDump(const std::string &file)
+    {
+        // TODO: Implementation for hex dump analysis
     }
 
-    void Analyzer::analyzeHexDump(const std::string &file) {}
-    bool Analyzer::isIndirectCall(const std::string &instruction) {}
-    int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly) {}
-    bool Analyzer::isSuspiciousSegment(const std::string &segment) {}
-    std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file) {}
-    std::vector<std::string> Analyzer::extractStrings(const std::string &file) {}
-    bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings) {}
+    bool Analyzer::isIndirectCall(const std::string &instruction)
+    {
+        // TODO: Implementation to check if the instruction is an indirect call
+        return false;
+    }
+
+    int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly)
+    {
+        // TODO: Implementation to count jump instructions in disassembly
+        return 0;
+    }
+
+    bool Analyzer::isSuspiciousSegment(const std::string &segment)
+    {
+        // TODO: Implementation to check if a segment is suspicious
+        return false;
+    }
+
+    std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file)
+    {
+        // TODO: Implementation to extract dylib functions from a file
+        return {};
+    }
+
+    std::vector<std::string> Analyzer::extractStrings(const std::string &file)
+    {
+        // TODO: Implementation to extract strings from a file
+        return {};
+    }
+
+    bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings)
+    {
+        // TODO: Implementation to check if common strings are missing
+        return false;
+    }
 
     void Analyzer::compareMachOBinaries(const std::string &file1, const std::string &file2)
     {

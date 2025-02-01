@@ -44,6 +44,10 @@ namespace machXplorer
         void analyzeDisassembly(const std::string &file);
         void analyzeObfuscation(const std::string &file);
         void analyzeHexDump(const std::string &file);
+
+        // Helper functions
+        std::ifstream openFileStream(const std::string &file);
+        std::vector<std::string> disassembleMachOFile(const std::string &file);
         std::vector<std::string> extractSymbolTable(const std::string &file);
         bool isIndirectCall(const std::string &instruction);
         int countJumpInstructions(const std::vector<std::string> &disassembly);
@@ -51,6 +55,7 @@ namespace machXplorer
         std::vector<std::string> extractDylibFunctions(const std::string &file);
         std::vector<std::string> extractStrings(const std::string &file);
         bool missingCommonStrings(const std::vector<std::string> &strings);
+
 
         // Functions to print the Mach-O header information
         void printSectionInfo(const section_64 *section64);
