@@ -154,7 +154,6 @@ namespace machXplorer
     void Analyzer::analyzeHeader(const std::string &file)
     {
         std::cout << "[+] Analyzing header of file: " << file << std::endl;
-        // std::ifstream fileStream(file, std::ios::binary);
         auto fileStream = openFileStream(file);
 
         if (!fileStream.is_open())
@@ -194,12 +193,7 @@ namespace machXplorer
 
     void Analyzer::analyzeSegment(const std::string &file)
     {
-        std::ifstream fileStream(file, std::ios::binary);
-        if (!fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
 
         segment_command_64 segment64;
         fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
@@ -225,12 +219,7 @@ namespace machXplorer
 
     void Analyzer::analyzeSection(const std::string &file)
     {
-        std::ifstream fileStream(file, std::ios::binary);
-        if (!fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
 
         section_64 *section64;
         fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
@@ -254,18 +243,13 @@ namespace machXplorer
     }
     void Analyzer::analyzeSymbol(const std::string &file)
     {
-        std::ifstream filestream(file, std::ios::binary);
-        if (!filestream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
 
         symtab_command symtab;
-        filestream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
+        fileStream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
 
         printSymbolInfo(symtab);
-        filestream.close();
+        fileStream.close();
     }
 
     void Analyzer::printSymbolInfo(const symtab_command &symtab64)
@@ -279,12 +263,7 @@ namespace machXplorer
 
     void Analyzer::analyzeDisassembly(const std::string &file)
     {
-        std::ifstream fileStream(file, std::ios::binary);
-        if (!fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
 
         dysymtab_command dysymtab;
         fileStream.read(reinterpret_cast<char *>(&dysymtab), sizeof(dysymtab));
@@ -320,12 +299,7 @@ namespace machXplorer
 
     void Analyzer::analyzeObfuscation(const std::string &file)
     {
-        std::ifstream fileStream(file, std::ios::binary);
-        if (!fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
+        auto fileStream = openFileStream(file);
 
         // NOTE: Step 1 Check for Stripped Symbols
         auto symbols = extractSymbolTable(file);
@@ -391,35 +365,8 @@ namespace machXplorer
 
     std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
     {
-        /*
-        * method disassembleBinary(file: string) -> list of instructions:
-    open the Mach-O binary file
-
-    # Step 1: Load the executable sections
-    loadCommands = extractLoadCommands(file)
-    textSection = findSection(loadCommands, "__TEXT", "__text")
-
-    if textSection is empty:
-        print "Error: No executable section found."
-        return empty list
-
-    # Step 2: Read the raw bytes of the __TEXT.__text section
-    rawBytes = readBytes(file, textSection.offset, textSection.size)
-
-    # Step 3: Convert raw bytes into assembly instructions
-    instructions = []
-    offset = 0
-    while offset < textSection.size:
-        instruction = decodeInstruction(rawBytes, offset)
-        if instruction is valid:
-            instructions.append(instruction)
-        offset += instruction.size  # Move to the next instruction
-
-    return instructions
-        * */
         // NOTE:  Step 1 Load the executable sections
         auto fileStream = openFileStream(file);
-
 
         mach_header_64 header64;
         fileStream.read(reinterpret_cast<char *>(&header64), sizeof(header64));
@@ -427,11 +374,26 @@ namespace machXplorer
         auto loadCommands = header64.ncmds;
         for (int i = 0; i < loadCommands; i++)
         {
-
+            load_command command;
+            if (command.cmd == LC_SEGMENT_64)
+            {
+                segment_command_64 segment64;
+                fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
+                if (segment64.cmd == LC_SEGMENT_64)
+                {
+                    section_64 section64;
+                    fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
+                    if (section64.flags & S_ATTR_PURE_INSTRUCTIONS)
+                    {
+                        // NOTE: Disassemble the section
+                        // ...
+                    }
+                }
+            }
         }
 
         // NOTE: Step 2 Read the raw bytes of the __TEXT.__text section
-        std::vector<std::string> instructions;
+        std::vector<std::string> instructions{};
 
         fileStream.close();
 
