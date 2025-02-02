@@ -13,7 +13,7 @@ namespace machXplorer
             throw std::runtime_error("Error: Unable to open file.");
         }
         return fileStream;
-    }
+    } // !Analyzer::openFileStream
 
     void Analyzer::printHelpMenu(char **argv)
     {
@@ -34,7 +34,7 @@ namespace machXplorer
             << "  " << argv[0] << " -c file1.macho file2.macho\n\n"
             << "Author:\n"
             << "  https://github.com/wilfrantz ©2025\n";
-    }
+    } // !Analyzer::printHelpMenu
 
     void Analyzer::processCLArguments(int argc, char **argv)
     {
@@ -82,9 +82,7 @@ namespace machXplorer
     Analyzer::AnalysisType Analyzer::setAnalysisType(char **argv)
     {
         if (!argv[1]) // Defensive check in case argv[1] is null
-        {
             return AnalysisType::INVALID;
-        }
 
         const std::string option(argv[1]);
 
@@ -106,7 +104,7 @@ namespace machXplorer
             return AnalysisType::HELP;
 
         return AnalysisType::INVALID; // Should never reach here!
-    }
+    } // !Analyzer::setAnalysisType
 
     void Analyzer::analyzeMachOBinary(const std::string &file,
                                       const std::string &file2,
@@ -143,7 +141,7 @@ namespace machXplorer
             std::cerr << "[-] Error: Invalid option provided.\n";
             break;
         }
-    }
+    } // !Analyzer::analyzeMachOBinary
 
     /***
      * Analyze the header of a Mach-O binary file.
@@ -154,14 +152,7 @@ namespace machXplorer
      ***/
     void Analyzer::analyzeHeader(const std::string &file)
     {
-        std::cout << "[+] Analyzing header of file: " << file << std::endl;
         auto fileStream = openFileStream(file);
-
-        if (!fileStream.is_open())
-        {
-            std::cerr << "[-] Error: Unable to open file.\n";
-            exit(EXIT_FAILURE);
-        }
 
         // Read the Mach-O header
         mach_header_64 header64;
@@ -178,7 +169,7 @@ namespace machXplorer
         printHeaderInfo(&header64);
 
         fileStream.close();
-    }
+    } // !Analyzer::analyzeHeader
 
     void Analyzer::printHeaderInfo(const mach_header_64 *header)
     {
@@ -190,7 +181,7 @@ namespace machXplorer
         std::cout << "  Number of Load Commands: " << header->ncmds << "\n";
         std::cout << "  Size of Load Commands: " << header->sizeofcmds << "\n";
         std::cout << "  Flags: " << header->flags << "\n";
-    }
+    } // !Analyzer::printHeaderInfo
 
     void Analyzer::analyzeSegment(const std::string &file)
     {
@@ -202,7 +193,7 @@ namespace machXplorer
         printSegmentInfo(&segment64);
 
         fileStream.close();
-    }
+    } // !Analyzer::analyzeSegment
 
     void Analyzer::printSegmentInfo(const segment_command_64 *segment64)
     {
@@ -216,7 +207,7 @@ namespace machXplorer
         std::cout << "  Initial VM Protection: " << segment64->initprot << "\n";
         std::cout << "  Number of Sections: " << segment64->nsects << "\n";
         std::cout << "  Flags: " << segment64->flags << "\n";
-    }
+    } // !Analyzer::printSegmentInfo
 
     void Analyzer::analyzeSection(const std::string &file)
     {
@@ -228,7 +219,7 @@ namespace machXplorer
         printSectionInfo(section64);
 
         fileStream.close();
-    }
+    } // !Analyzer::analyzeSection
 
     void Analyzer::printSectionInfo(const section_64 *section64)
     {
@@ -241,7 +232,8 @@ namespace machXplorer
         std::cout << "  Alignment: " << section64->align << "\n";
         std::cout << "  Number of Relocation Entries: " << section64->nreloc << "\n";
         std::cout << "  Flags: " << section64->flags << "\n";
-    }
+    } // !Analyzer::printSectionInfo
+
     void Analyzer::analyzeSymbol(const std::string &file)
     {
         auto fileStream = openFileStream(file);
@@ -251,7 +243,7 @@ namespace machXplorer
 
         printSymbolInfo(symtab);
         fileStream.close();
-    }
+    } // !Analyzer::analyzeSymbol
 
     void Analyzer::printSymbolInfo(const symtab_command &symtab64)
     {
@@ -260,7 +252,7 @@ namespace machXplorer
         std::cout << "  Number of Symbols: " << symtab64.nsyms << "\n";
         std::cout << "  String Table Offset: " << symtab64.stroff << "\n";
         std::cout << "  String Table Size: " << symtab64.strsize << "\n";
-    }
+    } // !Analyzer::printSymbolInfo
 
     void Analyzer::analyzeDisassembly(const std::string &file)
     {
@@ -271,7 +263,7 @@ namespace machXplorer
         printDisassemblyInfo(dysymtab);
 
         fileStream.close();
-    }
+    } // !Analyzer::analyzeDisassembly
 
     void Analyzer::printDisassemblyInfo(const dysymtab_command &dysymtab)
     {
@@ -296,7 +288,7 @@ namespace machXplorer
         std::cout << " Number of external relocation entries: " << dysymtab.nextrel << "\n";
         std::cout << " File offset to local relocation entries: " << dysymtab.locreloff << "\n";
         std::cout << " Number of local relocation entries: " << dysymtab.nlocrel << "\n";
-    }
+    } // !Analyzer::printDisassemblyInfo
 
     void Analyzer::analyzeObfuscation(const std::string &file)
     {
@@ -319,6 +311,7 @@ namespace machXplorer
 
         // NOTE: Step 3 Detect Hidden Functions
         std::vector<std::string> disassembly = disassembleMachOFile(file);
+
         for (const auto &instruction : disassembly)
         {
             if (isIndirectCall(instruction))
@@ -366,42 +359,103 @@ namespace machXplorer
 
     std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
     {
-        // NOTE:  Step 1 Load the executable sections
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
+
         std::cout << "[+] Disassembling Mach-O file: " << file << std::endl;
         auto fileStream = openFileStream(file);
 
+        // NOTE: Read the Mach-O header
         mach_header_64 header64;
         fileStream.read(reinterpret_cast<char *>(&header64), sizeof(header64));
 
         auto loadCommands = header64.ncmds;
+        std::vector<std::string> instructions{};
+
         for (int i = 0; i < loadCommands; i++)
         {
             load_command command;
+            fileStream.read(reinterpret_cast<char *>(&command), sizeof(command)); // Read the load command
+
             if (command.cmd == LC_SEGMENT_64)
             {
+                // NOTE: Read the Mach-O __TEXT Segment
                 segment_command_64 segment64;
                 fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
-                if (segment64.cmd == LC_SEGMENT_64)
+
+                for (uint32_t j = 0; j < segment64.nsects; j++) // Iterate through all sections
                 {
+                    // NOTE: Read the Mach-O __TEXT.__text Section
                     section_64 section64;
                     fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
+
                     if (section64.flags & S_ATTR_PURE_INSTRUCTIONS)
                     {
-                        std::cout << "Found a pure instruction section: " << section64.sectname << std::endl;
-                        // NOTE: Disassemble the section
-                        // ...
+                        std::cout << "[+] Found pure instruction section: " << section64.sectname << std::endl;
+
+                        // Disassemble the section and append/insert to the instructions vector.
+                        auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size);
+                        instructions.insert(instructions.end(), disassembledInstructions.begin(), disassembledInstructions.end());
                     }
                 }
             }
         }
 
-        // NOTE: Step 2 Read the raw bytes of the __TEXT.__text section
-        std::vector<std::string> instructions{};
-
         fileStream.close();
 
+        std::cout << "[+] Disassembled Instructions:" << std::endl;
+        for (const auto &instruction : instructions)
+        {
+            std::cout << instruction << std::endl;
+        }
+
+        EXIT_SUCCESS;
         return instructions;
     } // !Analyzer::disassembleMachOFile
+
+    std::vector<std::string> Analyzer::disassembleSection(const std::string &file, uint64_t offset, uint64_t size)
+    {
+        std::cout << "[+] Disassembling section at offset: " << offset << " with size: " << size << std::endl;
+
+        std::ifstream binary(openFileStream(file));
+
+        // Read the __TEXT.__text section bytes
+        binary.seekg(offset, std::ios::beg);
+        std::vector<uint8_t> code(size);
+        binary.read(reinterpret_cast<char *>(code.data()), size);
+        binary.close();
+
+        // Initialize Capstone disassembler for ARM64
+        csh handle;
+        cs_insn *insn;
+        size_t count;
+
+        if (cs_open(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, &handle) != CS_ERR_OK)
+        {
+            std::cerr << "[-] Error: Failed to initialize Capstone.\n";
+            return {};
+        }
+
+        count = cs_disasm(handle, code.data(), code.size(), offset, 0, &insn);
+        if (count > 0)
+        {
+            std::vector<std::string> instructions;
+            for (size_t i = 0; i < count; i++)
+            {
+                instructions.push_back(insn[i].mnemonic);
+            }
+            cs_free(insn, count);
+            cs_close(&handle);
+
+            return instructions;
+        }
+
+        cs_close(&handle);
+        return {};
+    } // !Analyzer::disassembleSection
 
     std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
     {

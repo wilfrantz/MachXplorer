@@ -1,34 +1,42 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Set the project name
-project(machXplorer VERSION 1.0 LANGUAGES CXX)
+project(MachXplorer VERSION 1.0 LANGUAGES CXX)
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set the target architecture
+# Target ARM64 architecture (Apple Silicon)
 set(CMAKE_OSX_ARCHITECTURES "arm64")
 
-# Set the path to the Capstone library
-set(Capstone_DIR "/opt/homebrew/Cellar/capstone/5.0.3/lib/cmake/capstone")
+# Use pkg-config to find Capstone
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CAPSTONE REQUIRED capstone)
 
-# Find the Capstone library
-# find_package(Capstone REQUIRED)
+# Error handling if Capstone is not found
+if(NOT CAPSTONE_FOUND)
+    message(FATAL_ERROR "Capstone library not found! Install it using 'brew install capstone'.")
+endif()
 
 # Add the executable
 add_executable(MachXplorer
     src/analyzer.cpp
     src/main.cpp
-    # ...add other source files here...
 )
 
 # Include directories
 target_include_directories(MachXplorer PUBLIC
     ${PROJECT_SOURCE_DIR}/include
+    /opt/homebrew/Cellar/capstone/5.0.3/include  
     ${CAPSTONE_INCLUDE_DIRS}
-    # ...add other include directories here...
 )
 
-# Link with Capstone library
+# Link Capstone library
+target_link_directories(MachXplorer PRIVATE ${CAPSTONE_LIBRARY_DIRS})
 target_link_libraries(MachXplorer PRIVATE ${CAPSTONE_LIBRARIES})
+
+# Print debug info
+message(STATUS "Capstone include dirs: ${CAPSTONE_INCLUDE_DIRS}")
+message(STATUS "Capstone library dirs: ${CAPSTONE_LIBRARY_DIRS}")
+message(STATUS "Capstone libraries: ${CAPSTONE_LIBRARIES}")

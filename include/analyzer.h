@@ -8,6 +8,7 @@
 #include <fstream>
 #include <mach-o/nlist.h>
 #include <mach-o/loader.h>
+#include <capstone/capstone.h>
 
 namespace machXplorer
 {
@@ -56,9 +57,9 @@ namespace machXplorer
         std::vector<std::string> extractDylibFunctions(const std::string &file);
         std::vector<std::string> extractStrings(const std::string &file);
         bool missingCommonStrings(const std::vector<std::string> &strings);
+        std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size);
 
-
-        // Functions to print the Mach-O header information
+        // Functions to print the Mach-O information
         void printSectionInfo(const section_64 *section64);
         void printHeaderInfo(const mach_header_64 *header64);
         void printSegmentInfo(const segment_command_64 *segment64);
