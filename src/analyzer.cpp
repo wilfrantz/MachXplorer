@@ -86,7 +86,7 @@ namespace machXplorer
             return AnalysisType::INVALID;
         }
 
-        std::string option(argv[1]);
+        const std::string option(argv[1]);
 
         if (option == "-h" || option == "--header")
             return AnalysisType::HEADER;
@@ -105,7 +105,7 @@ namespace machXplorer
         if (option == "--help")
             return AnalysisType::HELP;
 
-        return AnalysisType::INVALID; // Avoid immediate exit here
+        return AnalysisType::INVALID; // Should never reach here!
     }
 
     void Analyzer::analyzeMachOBinary(const std::string &file,
@@ -136,7 +136,8 @@ namespace machXplorer
             compareMachOBinaries(file, file2);
             break;
         case AnalysisType::HELP:
-            // NOTE: No need to call help, case here to turn off Compiler warning
+            // NOTE: printHelpMenu() already called!
+            // keep here to turn off Compiler warning
             break;
         case AnalysisType::INVALID:
             std::cerr << "[-] Error: Invalid option provided.\n";
@@ -317,7 +318,7 @@ namespace machXplorer
         }
 
         // NOTE: Step 3 Detect Hidden Functions
-        std::vector<std::string> disassembly = {/* TODO: Call a disassembly function */};
+        std::vector<std::string> disassembly = disassembleMachOFile(file);
         for (const auto &instruction : disassembly)
         {
             if (isIndirectCall(instruction))
@@ -366,6 +367,7 @@ namespace machXplorer
     std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
     {
         // NOTE:  Step 1 Load the executable sections
+        std::cout << "[+] Disassembling Mach-O file: " << file << std::endl;
         auto fileStream = openFileStream(file);
 
         mach_header_64 header64;
@@ -385,6 +387,7 @@ namespace machXplorer
                     fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
                     if (section64.flags & S_ATTR_PURE_INSTRUCTIONS)
                     {
+                        std::cout << "Found a pure instruction section: " << section64.sectname << std::endl;
                         // NOTE: Disassemble the section
                         // ...
                     }
@@ -420,46 +423,51 @@ namespace machXplorer
     void Analyzer::analyzeHexDump(const std::string &file)
     {
         // TODO: Implementation for hex dump analysis
-    }
+    } // !Analyzer::analyzeHexDump
 
     bool Analyzer::isIndirectCall(const std::string &instruction)
     {
         // TODO: Implementation to check if the instruction is an indirect call
         return false;
-    }
+    } // !Analyzer::isIndirectCall
 
     int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly)
     {
         // TODO: Implementation to count jump instructions in disassembly
         return 0;
-    }
+    } // !Analyzer::countJumpInstructions
 
     bool Analyzer::isSuspiciousSegment(const std::string &segment)
     {
         // TODO: Implementation to check if a segment is suspicious
         return false;
-    }
+    } // !Analyzer::isSuspiciousSegment
 
     std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file)
     {
         // TODO: Implementation to extract dylib functions from a file
         return {};
-    }
+    } // !Analyzer::extractDylibFunctions
 
     std::vector<std::string> Analyzer::extractStrings(const std::string &file)
     {
         // TODO: Implementation to extract strings from a file
         return {};
-    }
+    } // !Analyzer::extractStrings
 
     bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings)
     {
         // TODO: Implementation to check if common strings are missing
         return false;
-    }
+    } // !Analyzer::missingCommonStrings
 
     void Analyzer::compareMachOBinaries(const std::string &file1, const std::string &file2)
     {
+        if (!(isMachO(file1) && isMachO(file2)))
+        {
+            std::cerr << "[-] Error: Invalid file(s) provided.\n";
+            throw std::runtime_error("Error: Invalid file(s) provided.");
+        }
 
         if (file1.empty() || file2.empty())
         {
@@ -482,6 +490,20 @@ namespace machXplorer
 
         file1Stream.close();
         file2Stream.close();
-    }
+    } // !Analyzer::compareMachOBinaries
 
-} // namespace machXplorer
+    bool Analyzer::isMachO(const std::string &filePath)
+    {
+        std::ifstream fileStream = openFileStream(filePath);
+
+        // Check for the Mach-O magic number
+        uint32_t magic;
+        fileStream.read(reinterpret_cast<char *>(&magic), sizeof(magic));
+
+        fileStream.close();
+
+        // MH_MAGIC (for 32-bit) or MH_MAGIC_64 (for 64-bit)
+        return magic == 0xfeedface || magic == 0xfeedfacf;
+    } // !Analyzer::isMachO
+
+} // !namespace machXplorer

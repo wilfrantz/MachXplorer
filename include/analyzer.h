@@ -46,6 +46,7 @@ namespace machXplorer
         void analyzeHexDump(const std::string &file);
 
         // Helper functions
+        bool isMachO(const std::string &filePath);
         std::ifstream openFileStream(const std::string &file);
         std::vector<std::string> disassembleMachOFile(const std::string &file);
         std::vector<std::string> extractSymbolTable(const std::string &file);
