@@ -103,7 +103,7 @@ namespace machXplorer
         if (option == "--help")
             return AnalysisType::HELP;
 
-        return AnalysisType::INVALID; // Should never reach here!
+        return AnalysisType::INVALID; // Should never reach this point!
     } // !Analyzer::setAnalysisType
 
     void Analyzer::analyzeMachOBinary(const std::string &file,
@@ -417,26 +417,17 @@ namespace machXplorer
         return instructions;
     } // !Analyzer::disassembleMachOFile
 
-    // std::vector<std::string> Analyzer::disassembleSection(const std::string &file, uint64_t offset, uint64_t size)
-    // {
-    // }
-
-    std::vector<std::string> Analyzer ::disassembleSection(const std::string &file, uint64_t offset, uint64_t size, cpu_type_t cpuType)
+    std::vector<std::string> Analyzer ::disassembleSection(const std::string &file,
+                                                           uint64_t offset, uint64_t size, cpu_type_t cpuType)
     {
+
         std::ifstream binary(file, std::ios::binary);
-        if (!binary.is_open())
-        {
-            std::cerr << "[-] Error: Could not open file: " << file << "\n";
-            return {};
-        }
 
         // Read the __TEXT.__text section bytes
         binary.seekg(offset, std::ios::beg);
         std::vector<uint8_t> code(size);
         binary.read(reinterpret_cast<char *>(code.data()), size);
         binary.close();
-
-        std::vector<std::string> disassembledInstructions;
 
         // Initialize Capstone disassembler
         csh handle;
@@ -469,6 +460,7 @@ namespace machXplorer
             return {};
         }
 
+        std::vector<std::string> disassembledInstructions;
         count = cs_disasm(handle, code.data(), code.size(), offset, 0, &insn);
         if (count > 0)
         {
