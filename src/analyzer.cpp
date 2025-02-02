@@ -397,7 +397,8 @@ namespace machXplorer
                         std::cout << "[+] Found pure instruction section: " << section64.sectname << std::endl;
 
                         // Disassemble the section and append/insert to the instructions vector.
-                        auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size);
+                        // auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size);
+                        auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size, header64.cputype);
                         instructions.insert(instructions.end(), disassembledInstructions.begin(), disassembledInstructions.end());
                     }
                 }
@@ -416,11 +417,18 @@ namespace machXplorer
         return instructions;
     } // !Analyzer::disassembleMachOFile
 
-    std::vector<std::string> Analyzer::disassembleSection(const std::string &file, uint64_t offset, uint64_t size)
-    {
-        std::cout << "[+] Disassembling section at offset: " << offset << " with size: " << size << std::endl;
+    // std::vector<std::string> Analyzer::disassembleSection(const std::string &file, uint64_t offset, uint64_t size)
+    // {
+    // }
 
-        std::ifstream binary(openFileStream(file));
+    std::vector<std::string> Analyzer ::disassembleSection(const std::string &file, uint64_t offset, uint64_t size, cpu_type_t cpuType)
+    {
+        std::ifstream binary(file, std::ios::binary);
+        if (!binary.is_open())
+        {
+            std::cerr << "[-] Error: Could not open file: " << file << "\n";
+            return {};
+        }
 
         // Read the __TEXT.__text section bytes
         binary.seekg(offset, std::ios::beg);
@@ -428,33 +436,57 @@ namespace machXplorer
         binary.read(reinterpret_cast<char *>(code.data()), size);
         binary.close();
 
-        // Initialize Capstone disassembler for ARM64
+        std::vector<std::string> disassembledInstructions;
+
+        // Initialize Capstone disassembler
         csh handle;
         cs_insn *insn;
         size_t count;
 
-        if (cs_open(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, &handle) != CS_ERR_OK)
+        cs_arch arch;
+        cs_mode mode;
+
+        // Detect architecture type
+        if (cpuType == CPU_TYPE_ARM64)
         {
-            std::cerr << "[-] Error: Failed to initialize Capstone.\n";
+            arch = CS_ARCH_ARM64;
+            mode = CS_MODE_LITTLE_ENDIAN;
+        }
+        else if (cpuType == CPU_TYPE_X86_64)
+        {
+            arch = CS_ARCH_X86;
+            mode = CS_MODE_64;
+        }
+        else
+        {
+            std::cerr << "[-] Error: Unsupported architecture." << std::endl;
+            return {};
+        }
+
+        if (cs_open(arch, mode, &handle) != CS_ERR_OK)
+        {
+            std::cerr << "[-] Error: Failed to initialize Capstone." << std::endl;
             return {};
         }
 
         count = cs_disasm(handle, code.data(), code.size(), offset, 0, &insn);
         if (count > 0)
         {
-            std::vector<std::string> instructions;
             for (size_t i = 0; i < count; i++)
             {
-                instructions.push_back(insn[i].mnemonic);
+                std::ostringstream oss;
+                oss << "0x" << std::hex << insn[i].address << ": " << insn[i].mnemonic << " " << insn[i].op_str;
+                disassembledInstructions.push_back(oss.str());
             }
             cs_free(insn, count);
-            cs_close(&handle);
-
-            return instructions;
+        }
+        else
+        {
+            std::cerr << "[-] Error: Failed to disassemble the section." << std::endl;
         }
 
         cs_close(&handle);
-        return {};
+        return disassembledInstructions;
     } // !Analyzer::disassembleSection
 
     std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)

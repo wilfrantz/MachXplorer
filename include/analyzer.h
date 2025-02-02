@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <vector>
 #include <fstream>
+#include <sstream> 
 #include <mach-o/nlist.h>
 #include <mach-o/loader.h>
 #include <capstone/capstone.h>
@@ -58,6 +59,7 @@ namespace machXplorer
         std::vector<std::string> extractStrings(const std::string &file);
         bool missingCommonStrings(const std::vector<std::string> &strings);
         std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size);
+        std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size, cpu_type_t cpuType);
 
         // Functions to print the Mach-O information
         void printSectionInfo(const section_64 *section64);
