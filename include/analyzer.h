@@ -6,9 +6,16 @@
 #include <cstdlib>
 #include <vector>
 #include <fstream>
-#include <sstream> 
-#include <mach-o/nlist.h>
+#include <sstream>
+#include <cmath>
+#include <iomanip>
+#include <bitset>
+#include <cstdint>
+#include <mach-o/fat.h>
 #include <mach-o/loader.h>
+#include <iterator>
+#include <unordered_set>
+#include <mach-o/nlist.h>
 #include <capstone/capstone.h>
 
 namespace machXplorer
@@ -61,12 +68,23 @@ namespace machXplorer
         std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size);
         std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size, cpu_type_t cpuType);
 
+        struct SegmentInfo
+        {
+            std::string name;
+            std::vector<uint8_t> data;
+        };
+        std::vector<SegmentInfo> extractSegmentInfo(const std::string &file);
+        double calculateEntropy(const std::vector<uint8_t> &data);
+        bool isSuspiciousSegment(const SegmentInfo &segment);
+        void printWarning(const std::string &message);
+
         // Functions to print the Mach-O information
         void printSectionInfo(const section_64 *section64);
         void printHeaderInfo(const mach_header_64 *header64);
         void printSegmentInfo(const segment_command_64 *segment64);
         void printSymbolInfo(const symtab_command &symtab64);
         void printDisassemblyInfo(const dysymtab_command &dysymtab);
+        std::string formatProtectionFlags(int prot);
     };
 
 } // namespace machXplorer

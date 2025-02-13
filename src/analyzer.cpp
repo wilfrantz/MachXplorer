@@ -1,9 +1,7 @@
-
 #include "analyzer.h"
 
 namespace machXplorer
 {
-
     std::ifstream Analyzer::openFileStream(const std::string &file)
     {
         std::ifstream fileStream(file, std::ios::binary);
@@ -152,6 +150,12 @@ namespace machXplorer
      ***/
     void Analyzer::analyzeHeader(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
+
         auto fileStream = openFileStream(file);
 
         // Read the Mach-O header
@@ -185,32 +189,95 @@ namespace machXplorer
 
     void Analyzer::analyzeSegment(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
+
         auto fileStream = openFileStream(file);
 
-        segment_command_64 segment64;
-        fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
+        mach_header_64 header;
+        fileStream.read(reinterpret_cast<char *>(&header), sizeof(header));
 
-        printSegmentInfo(&segment64);
+        for (uint32_t i = 0; i < header.ncmds; i++)
+        {
+            load_command loadCmd;
+            fileStream.read(reinterpret_cast<char *>(&loadCmd), sizeof(loadCmd));
+
+            if (loadCmd.cmd == LC_SEGMENT_64)
+            {
+                segment_command_64 segment;
+                fileStream.read(reinterpret_cast<char *>(&segment), sizeof(segment));
+                printSegmentInfo(&segment);
+            }
+            else
+            {
+                // Skip unknown load commands
+                fileStream.seekg(loadCmd.cmdsize - sizeof(loadCmd), std::ios::cur);
+            }
+        }
 
         fileStream.close();
     } // !Analyzer::analyzeSegment
 
     void Analyzer::printSegmentInfo(const segment_command_64 *segment64)
     {
+        if (!segment64)
+        {
+            std::cerr << "[-] Error: Invalid segment pointer.\n";
+            return;
+        }
+
+        // **Debug: Print the load command type**
+        std::cout << "[DEBUG] Load Command Type: 0x" << std::hex << segment64->cmd << std::dec << "\n";
+
+        // **Fix segment name extraction**
+        char segname[17] = {0};                       // Allocate 16 bytes + null terminator
+        std::memcpy(segname, segment64->segname, 16); // Copy raw bytes safely
+
+        // **Ensure segment name is printable**
+        for (int i = 0; i < 16; i++)
+        {
+            if (!isprint(segname[i]) && segname[i] != '\0')
+            {
+                std::cerr << "[-] Error: Segment name contains non-printable characters.\n";
+                return;
+            }
+        }
+
         std::cout << "[+] Segment Information:\n";
-        std::cout << "  Segment Name: " << segment64->segname << "\n";
-        std::cout << "  VM Address: " << segment64->vmaddr << "\n";
-        std::cout << "  VM Size: " << segment64->vmsize << "\n";
-        std::cout << "  File Offset: " << segment64->fileoff << "\n";
-        std::cout << "  File Size: " << segment64->filesize << "\n";
-        std::cout << "  Max VM Protection: " << segment64->maxprot << "\n";
-        std::cout << "  Initial VM Protection: " << segment64->initprot << "\n";
-        std::cout << "  Number of Sections: " << segment64->nsects << "\n";
-        std::cout << "  Flags: " << segment64->flags << "\n";
+        std::cout << "  Segment Name:        " << segname << "\n";
+        std::cout << "  VM Address:          0x" << std::hex << segment64->vmaddr << std::dec << "\n";
+        std::cout << "  VM Size:             " << segment64->vmsize << " bytes\n";
+        std::cout << "  File Offset:         0x" << std::hex << segment64->fileoff << std::dec << "\n";
+        std::cout << "  File Size:           " << segment64->filesize << " bytes\n";
+        std::cout << "  Max VM Protection:   " << formatProtectionFlags(segment64->maxprot) << "\n";
+        std::cout << "  Init VM Protection:  " << formatProtectionFlags(segment64->initprot) << "\n";
+        std::cout << "  Number of Sections:  " << segment64->nsects << "\n";
+        std::cout << "  Flags:               " << std::bitset<32>(segment64->flags) << " (binary)\n";
     } // !Analyzer::printSegmentInfo
+
+    // Helper function to format VM protection flags
+    std::string Analyzer::formatProtectionFlags(int prot)
+    {
+        std::string result;
+        if (prot & VM_PROT_READ)
+            result += "READ ";
+        if (prot & VM_PROT_WRITE)
+            result += "WRITE ";
+        if (prot & VM_PROT_EXECUTE)
+            result += "EXECUTE ";
+        return result.empty() ? "NONE" : result;
+    }
 
     void Analyzer::analyzeSection(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
         auto fileStream = openFileStream(file);
 
         section_64 *section64;
@@ -236,6 +303,12 @@ namespace machXplorer
 
     void Analyzer::analyzeSymbol(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
+
         auto fileStream = openFileStream(file);
 
         symtab_command symtab;
@@ -256,6 +329,11 @@ namespace machXplorer
 
     void Analyzer::analyzeDisassembly(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
         auto fileStream = openFileStream(file);
 
         dysymtab_command dysymtab;
@@ -292,52 +370,74 @@ namespace machXplorer
 
     void Analyzer::analyzeObfuscation(const std::string &file)
     {
+        if (!isMachO(file))
+        {
+            std::cerr << "[-] Error: Invalid Mach-O file provided.\n";
+            throw std::runtime_error("Error: Invalid Mach-O file provided.");
+        }
+
         auto fileStream = openFileStream(file);
 
-        // NOTE: Step 1 Check for Stripped Symbols
+        std::cout << "[+] Starting obfuscation analysis...\n";
+
+        // **Step 1: Check for Stripped Symbols**
         auto symbols = extractSymbolTable(file);
         if (symbols.empty())
+        {
             std::cout << "[!] Warning: Symbols are stripped, possible obfuscation detected.\n";
+        }
 
-        // NOTE Step 2 Detect Mangled or Obfuscated Symbols
-        std::regex mangledPattern("_Z[0-9A-Za-z_]+$");
+        // **Step 2: Detect Mangled or Obfuscated Symbols**
+        std::regex mangledPattern("_Z[0-9A-Za-z_]+$"); // C++ Itanium ABI Mangled Names
+        int obfuscatedSymbols = 0;
         for (const auto &symbol : symbols)
         {
             if (std::regex_match(symbol, mangledPattern))
             {
-                std::cout << "[!] Obfuscated symbol detected: " << symbol << "\n";
+                obfuscatedSymbols++;
             }
         }
+        if (obfuscatedSymbols > 5) // Avoid false positives from normal C++ programs
+        {
+            std::cout << "[!] Multiple obfuscated symbols detected (" << obfuscatedSymbols << " symbols).\n";
+        }
 
-        // NOTE: Step 3 Detect Hidden Functions
+        // **Step 3: Detect Hidden Function Calls (Indirect Calls)**
         std::vector<std::string> disassembly = disassembleMachOFile(file);
+        int indirectCallCount = 0;
 
         for (const auto &instruction : disassembly)
         {
             if (isIndirectCall(instruction))
             {
-                std::cout << "[!] Potential obfuscation: Indirect call detected at " << instruction << "\n";
+                indirectCallCount++;
             }
         }
 
-        // NOTE: Step 4 Detect Excessive Jump Instructions
-        int jumpCount = countJumpInstructions(disassembly);
-        if (jumpCount > 50)
+        if (indirectCallCount > 10) // Set a reasonable threshold to reduce false positives
         {
-            std::cout << "[!] Warning: Unusual number of jump instructions detected.\n";
+            std::cout << "[!] Potential obfuscation: " << indirectCallCount << " indirect calls detected.\n";
         }
 
-        // NOTE: Step 5 Identify Packed or Encrypted Sections
-        std::vector<std::string> segments = {/* Extract segment information */};
+        // **Step 4: Detect Excessive Jump Instructions (Junk Code)**
+        int jumpCount = countJumpInstructions(disassembly);
+        if (jumpCount > 100) // Increased threshold based on real-world samples
+        {
+            std::cout << "[!] Warning: Unusual number of jump instructions detected (" << jumpCount << ").\n";
+        }
+
+        // **Step 5: Identify Packed or Encrypted Sections Using Entropy Analysis**
+        auto segments = extractSegmentInfo(file);
         for (const auto &segment : segments)
         {
-            if (isSuspiciousSegment(segment))
+            double entropy = calculateEntropy(segment.data);
+            if (entropy > 7.5) // High entropy suggests encryption or packing
             {
-                std::cout << "[!] Potential packing or encryption detected in segment: " << segment << "\n";
+                std::cout << "[!] High-entropy section detected (" << segment.name << ") -> Possible packing/encryption.\n";
             }
         }
 
-        // NOTE: Step 6 Scan for Dynamic API Resolution
+        // **Step 6: Scan for Dynamic API Resolution (Common in Obfuscation)**
         std::vector<std::string> dylibFunctions = extractDylibFunctions(file);
         for (const auto &function : dylibFunctions)
         {
@@ -347,15 +447,71 @@ namespace machXplorer
             }
         }
 
-        // NOTE Step 7 Analyze String Table for Encrypted Strings
+        // **Step 7: Analyze String Table for Encrypted or XOR-Encoded Strings**
         std::vector<std::string> strings = extractStrings(file);
-        if (missingCommonStrings(strings))
+        int highEntropyStrings = 0;
+
+        for (const auto &str : strings)
         {
-            std::cout << "[!] Potential encrypted strings detected.\n";
+            std::vector<uint8_t> strData(str.begin(), str.end());
+            double entropy = calculateEntropy(strData);
+            if (entropy > 7.0) // High-entropy strings are likely encrypted
+            {
+                highEntropyStrings++;
+            }
+        }
+
+        if (highEntropyStrings > 10) // Avoid false positives by setting a threshold
+        {
+            std::cout << "[!] High-entropy strings detected (" << highEntropyStrings << "). Possible string obfuscation.\n";
         }
 
         std::cout << "[+] Obfuscation analysis completed.\n";
     } // !Analyzer::analyzeObfuscation
+
+    std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
+    {
+        auto fileStream = openFileStream(file);
+
+        mach_header_64 header;
+        fileStream.read(reinterpret_cast<char *>(&header), sizeof(header));
+
+        std::vector<std::string> symbols;
+        uint32_t strOffset = 0;
+
+        for (uint32_t i = 0; i < header.ncmds; i++)
+        {
+            load_command loadCmd;
+            fileStream.read(reinterpret_cast<char *>(&loadCmd), sizeof(loadCmd));
+
+            if (loadCmd.cmd == LC_SYMTAB)
+            {
+                symtab_command symtab;
+                fileStream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
+
+                strOffset = symtab.stroff;
+                fileStream.seekg(symtab.symoff, std::ios::beg);
+
+                for (uint32_t j = 0; j < symtab.nsyms; j++)
+                {
+                    nlist_64 symbol;
+                    fileStream.read(reinterpret_cast<char *>(&symbol), sizeof(symbol));
+
+                    fileStream.seekg(strOffset + symbol.n_un.n_strx, std::ios::beg);
+                    std::string symbolName;
+                    std::getline(fileStream, symbolName, '\0');
+                    symbols.push_back(symbolName);
+                }
+            }
+        }
+
+        return symbols;
+    } // !Analyzer::extractSymbolTable
+
+    bool Analyzer::isIndirectCall(const std::string &instruction)
+    {
+        return instruction.find("call") != std::string::npos && instruction.find("[") != std::string::npos;
+    }
 
     std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
     {
@@ -386,20 +542,32 @@ namespace machXplorer
                 segment_command_64 segment64;
                 fileStream.read(reinterpret_cast<char *>(&segment64), sizeof(segment64));
 
-                for (uint32_t j = 0; j < segment64.nsects; j++) // Iterate through all sections
+                for (uint32_t i = 0; i < header64.ncmds; i++)
                 {
-                    // NOTE: Read the Mach-O __TEXT.__text Section
-                    section_64 section64;
-                    fileStream.read(reinterpret_cast<char *>(&section64), sizeof(section64));
+                    load_command loadCmd;
+                    fileStream.read(reinterpret_cast<char *>(&loadCmd), sizeof(loadCmd));
 
-                    if (section64.flags & S_ATTR_PURE_INSTRUCTIONS)
+                    if (loadCmd.cmd == LC_SEGMENT_64)
                     {
-                        std::cout << "[+] Found pure instruction section: " << section64.sectname << std::endl;
+                        segment_command_64 segment;
+                        fileStream.read(reinterpret_cast<char *>(&segment), sizeof(segment));
 
-                        // Disassemble the section and append/insert to the instructions vector.
-                        // auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size);
-                        auto disassembledInstructions = disassembleSection(file, section64.offset, section64.size, header64.cputype);
-                        instructions.insert(instructions.end(), disassembledInstructions.begin(), disassembledInstructions.end());
+                        for (uint32_t j = 0; j < segment.nsects; j++)
+                        {
+                            section_64 section;
+                            fileStream.read(reinterpret_cast<char *>(&section), sizeof(section));
+
+                            if (section.flags & S_ATTR_PURE_INSTRUCTIONS)
+                            {
+                                auto disassembledInstructions = disassembleSection(file, section.offset, section.size, header64.cputype);
+                                instructions.insert(instructions.end(), disassembledInstructions.begin(), disassembledInstructions.end());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Skip unknown load commands
+                        fileStream.seekg(loadCmd.cmdsize - sizeof(loadCmd), std::ios::cur);
                     }
                 }
             }
@@ -417,10 +585,80 @@ namespace machXplorer
         return instructions;
     } // !Analyzer::disassembleMachOFile
 
+    int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly)
+    {
+        int count = 0;
+        for (const auto &instruction : disassembly)
+        {
+            if (instruction.find("jmp") != std::string::npos)
+                count++;
+        }
+        return count;
+    } // !Analyzer::countJumpInstructions
+
+    std::vector<Analyzer::SegmentInfo> Analyzer::extractSegmentInfo(const std::string &file)
+    {
+        // NOTE: Dummy implementation: Simulated segments
+        return {{"__TEXT", {0x55, 0x48, 0x89, 0xe5}}, {"__DATA", {0xff, 0xff, 0xaa, 0xaa}}};
+    }
+
+    double Analyzer::calculateEntropy(const std::vector<uint8_t> &data)
+    {
+        std::unordered_map<uint8_t, int> freq;
+        for (uint8_t byte : data)
+        {
+            freq[byte]++;
+        }
+
+        double entropy = 0.0;
+        for (const auto &[byte, count] : freq)
+        {
+            double p = static_cast<double>(count) / data.size();
+            entropy -= p * std::log2(p);
+        }
+        return entropy;
+    } // !Analyzer::calculateEntropy
+
+    bool Analyzer::isSuspiciousSegment(const SegmentInfo &segment)
+    {
+        return calculateEntropy(segment.data) > 7.5;
+    } // !Analyzer::isSuspiciousSegment
+
+    // Dynamic API Resolution Detection**
+    std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file)
+    {
+        // NOTE: Dummy implementation
+        return {"dlopen", "dlsym", "objc_msgSend"};
+    } // !Analyzer::extractDylibFunctions
+
+    std::vector<std::string> Analyzer::extractStrings(const std::string &file)
+    {
+        // NOTE: Dummy implementation: Simulated extracted strings
+        return {"Hello", "Password123", "\x89\xAB\xCD\xEF"};
+    } // !Analyzer::extractStrings
+
+    bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings)
+    {
+        std::unordered_set<std::string> commonStrings = {"main", "printf", "exit", "malloc"};
+        for (const auto &str : strings)
+        {
+            if (commonStrings.find(str) != commonStrings.end())
+            {
+                return false; // Found at least one common string
+            }
+        }
+        return true;
+    } // !Analyzer::missingCommonStrings
+
+    // Logging & Reporting**
+    void Analyzer::printWarning(const std::string &message)
+    {
+        std::cout << "[!] " << message << std::endl;
+    } // !Analyzer::printWarning
+
     std::vector<std::string> Analyzer ::disassembleSection(const std::string &file,
                                                            uint64_t offset, uint64_t size, cpu_type_t cpuType)
     {
-
         std::ifstream binary(file, std::ios::binary);
 
         // Read the __TEXT.__text section bytes
@@ -481,63 +719,10 @@ namespace machXplorer
         return disassembledInstructions;
     } // !Analyzer::disassembleSection
 
-    std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
-    {
-        auto fileStream = openFileStream(file);
-
-        symtab_command symtab;
-        fileStream.read(reinterpret_cast<char *>(&symtab), sizeof(symtab));
-
-        std::vector<std::string> symbols;
-        for (int i = 0; i < symtab.nsyms; i++)
-        {
-            nlist_64 symbol;
-            fileStream.read(reinterpret_cast<char *>(&symbol), sizeof(symbol));
-            symbols.push_back(std::to_string(symbol.n_un.n_strx));
-        }
-        return symbols;
-    } // !Analyzer::extractSymbolTable
-
     void Analyzer::analyzeHexDump(const std::string &file)
     {
         // TODO: Implementation for hex dump analysis
     } // !Analyzer::analyzeHexDump
-
-    bool Analyzer::isIndirectCall(const std::string &instruction)
-    {
-        // TODO: Implementation to check if the instruction is an indirect call
-        return false;
-    } // !Analyzer::isIndirectCall
-
-    int Analyzer::countJumpInstructions(const std::vector<std::string> &disassembly)
-    {
-        // TODO: Implementation to count jump instructions in disassembly
-        return 0;
-    } // !Analyzer::countJumpInstructions
-
-    bool Analyzer::isSuspiciousSegment(const std::string &segment)
-    {
-        // TODO: Implementation to check if a segment is suspicious
-        return false;
-    } // !Analyzer::isSuspiciousSegment
-
-    std::vector<std::string> Analyzer::extractDylibFunctions(const std::string &file)
-    {
-        // TODO: Implementation to extract dylib functions from a file
-        return {};
-    } // !Analyzer::extractDylibFunctions
-
-    std::vector<std::string> Analyzer::extractStrings(const std::string &file)
-    {
-        // TODO: Implementation to extract strings from a file
-        return {};
-    } // !Analyzer::extractStrings
-
-    bool Analyzer::missingCommonStrings(const std::vector<std::string> &strings)
-    {
-        // TODO: Implementation to check if common strings are missing
-        return false;
-    } // !Analyzer::missingCommonStrings
 
     void Analyzer::compareMachOBinaries(const std::string &file1, const std::string &file2)
     {
@@ -574,14 +759,15 @@ namespace machXplorer
     {
         std::ifstream fileStream = openFileStream(filePath);
 
-        // Check for the Mach-O magic number
         uint32_t magic;
         fileStream.read(reinterpret_cast<char *>(&magic), sizeof(magic));
 
         fileStream.close();
 
-        // MH_MAGIC (for 32-bit) or MH_MAGIC_64 (for 64-bit)
-        return magic == 0xfeedface || magic == 0xfeedfacf;
+        // Handle byte order correctly
+        uint32_t swappedMagic = __builtin_bswap32(magic);
+        return magic == MH_MAGIC || magic == MH_MAGIC_64 ||
+               swappedMagic == FAT_MAGIC || swappedMagic == FAT_MAGIC_64;
     } // !Analyzer::isMachO
 
 } // !namespace machXplorer
