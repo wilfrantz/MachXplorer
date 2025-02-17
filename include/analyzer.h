@@ -58,12 +58,6 @@ namespace machXplorer
         bool isMachO(const std::string &filePath);
         std::ifstream openFileStream(const std::string &file);
         std::vector<std::string> disassembleMachOFile(const std::string &file);
-        std::vector<std::string> extractSymbolTable(const std::string &file);
-        bool isIndirectCall(const std::string &instruction);
-        int countJumpInstructions(const std::vector<std::string> &disassembly);
-        bool isSuspiciousSegment(const std::string &segment);
-        std::vector<std::string> extractDylibFunctions(const std::string &file);
-        std::vector<std::string> extractStrings(const std::string &file);
         bool missingCommonStrings(const std::vector<std::string> &strings);
         std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size);
         std::vector<std::string> disassembleSection(const std::string &file, uint64_t offset, uint64_t size, cpu_type_t cpuType);
@@ -73,8 +67,7 @@ namespace machXplorer
             std::string name;
             std::vector<uint8_t> data;
         };
-        std::vector<SegmentInfo> extractSegmentInfo(const std::string &file);
-        double calculateEntropy(const std::vector<uint8_t> &data);
+
         bool isSuspiciousSegment(const SegmentInfo &segment);
         void printWarning(const std::string &message);
 
@@ -85,6 +78,52 @@ namespace machXplorer
         void printSymbolInfo(const symtab_command &symtab64);
         void printDisassemblyInfo(const dysymtab_command &dysymtab);
         std::string formatProtectionFlags(int prot);
+
+    private:
+
+        // NOTE:  Obfuscation Detection Helpers
+
+        /// Step 1: Check if the Mach-O binary has stripped symbols
+        bool checkStrippedSymbols(const std::string &file);
+
+        /// Step 2: Detect mangled or obfuscated symbols
+        bool checkMangledSymbols(const std::string &file);
+
+        /// Step 3: Detect excessive indirect function calls
+        bool checkIndirectCalls(const std::string &file);
+
+        /// Step 4: Detect excessive jump instructions (junk code)
+        bool checkJumpInstructions(const std::string &file);
+
+        /// Step 5: Detect packed or encrypted sections based on entropy analysis
+        bool checkPackedSections(const std::string &file);
+
+        /// Step 6: Detect suspicious dynamic API resolution
+        bool checkDynamicAPIUsage(const std::string &file);
+
+        /// Step 7: Detect high-entropy strings (possible encrypted or XOR-obfuscated strings)
+        bool checkObfuscatedStrings(const std::string &file);
+
+        /// Helper: Calculate entropy of a byte sequence to detect encryption or packing
+        double calculateEntropy(const std::vector<uint8_t> &data);
+
+        /// Helper: Extract symbol table from Mach-O binary
+        std::vector<std::string> extractSymbolTable(const std::string &file);
+
+        /// Helper: Extract all functions dynamically loaded via dylib resolution
+        std::vector<std::string> extractDylibFunctions(const std::string &file);
+
+        /// Helper: Extract raw strings from the binary for analysis
+        std::vector<std::string> extractStrings(const std::string &file);
+
+        /// Helper: Count the number of jump instructions in a disassembled file
+        int countJumpInstructions(const std::vector<std::string> &disassembly);
+
+        /// Helper: Check if an instruction is an indirect function call
+        bool isIndirectCall(const std::string &instruction);
+
+        /// Helper: Extract Mach-O segment information (used for packed section detection)
+        std::vector<Analyzer::SegmentInfo> extractSegmentInfo(const std::string &file);
     };
 
 } // namespace machXplorer

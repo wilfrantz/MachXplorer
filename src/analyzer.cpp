@@ -15,36 +15,40 @@ namespace machXplorer
 
     void Analyzer::printHelpMenu(char **argv)
     {
-        std::cout
-            << "[+] Usage: " << argv[0] << " [OPTION]... FILE\n"
-            << "[+] Analyze and manipulate Mach-O binary files.\n\n"
-            << "Options:\n"
-            << "  -h, --header       Extract and display Mach-O headers, load commands, and entry points.\n"
-            << "  -s, --segment      Analyze memory layout, permissions, and unusual flags.\n"
-            << "  -y, --symbol       Detect hidden functions, obfuscated strings, or stripped symbols.\n"
-            << "  -d, --disassembly  Extract and analyze executable sections.\n"
-            << "  -o, --obfuscation  Identify common obfuscation patterns or suspicious modifications.\n"
-            << "  -x, --hex          Provide a formatted hex dump with string extraction.\n"
-            << "  -c, --compare      Compare two Mach-O binaries for integrity checks.\n"
-            << "  --help         Display this help menu and exit.\n\n"
-            << "Examples:\n"
-            << "  " << argv[0] << " -h file.macho\n"
-            << "  " << argv[0] << " -c file1.macho file2.macho\n\n"
-            << "Author:\n"
-            << "  https://github.com/wilfrantz ©2025\n";
+        static const std::vector<std::pair<std::string, std::string>> helpOptions = {
+            {"-h, --header", "Analyze Mach-O header"},
+            {"-s, --segment", "Analyze Mach-O segments"},
+            {"-y, --symbol", "Analyze Mach-O symbols"},
+            {"-d, --disassembly", "Analyze Mach-O disassembly"},
+            {"-o, --obfuscation", "Analyze Mach-O obfuscation"},
+            {"-x, --hex", "Analyze Mach-O hex dump"},
+            {"-c, --compare", "Compare two Mach-O binaries"},
+            {"--help", "Display this help menu"}};
+
+        std::cout << "Usage: " << argv[0] << " <option> <file> [additional file for comparison]\n";
+        std::cout << "Options:\n";
+
+        for (const auto &option : helpOptions)
+        {
+            std::cout << "  " << option.first << "   " << option.second << "\n";
+        }
     } // !Analyzer::printHelpMenu
 
     void Analyzer::processCLArguments(int argc, char **argv)
     {
-        // Ensure enough arguments are provided
-        if (argc < 3)
+        if (argc < 3) // Ensure enough arguments are provided
         {
-            std::cerr << "[-] Error: Insufficient arguments provided.\n";
+            if (argc == 2 && std::string(argv[1]) == "--help")
+            {
+                printHelpMenu(argv);
+                exit(EXIT_SUCCESS);
+            }
+            std::cerr << "\n[-] Error: Insufficient arguments provided.\n\n";
             printHelpMenu(argv);
             exit(EXIT_FAILURE);
         }
 
-        // Process the file based on the analysis type
+        // Get the analysis type from arguments
         AnalysisType type = setAnalysisType(argv);
 
         if (type == AnalysisType::INVALID)
@@ -53,55 +57,67 @@ namespace machXplorer
             printHelpMenu(argv);
             exit(EXIT_FAILURE);
         }
-        else if (type == AnalysisType::HELP)
+
+        // Define a lookup table for required argument counts
+        static const std::unordered_map<AnalysisType, int> requiredArgs = {
+            {AnalysisType::COMPARE, 4}, // Compare requires 2 files
+            {AnalysisType::HELP, 2},    // Help needs just the command
+            {AnalysisType::HEADER, 3},
+            {AnalysisType::SEGMENT, 3},
+            {AnalysisType::SYMBOL, 3},
+            {AnalysisType::DISASSEMBLY, 3},
+            {AnalysisType::OBFUSCATION, 3},
+            {AnalysisType::HEX, 3}};
+
+        // Validate argument count dynamically
+        if (argc < requiredArgs.at(type))
+        {
+            std::cerr << "[-] Error: Insufficient arguments for " << argv[1] << ".\n";
+            printHelpMenu(argv);
+            exit(EXIT_FAILURE);
+        }
+
+        // Handle different operations
+        std::string file1 = argv[2];
+        std::string file2 = (type == AnalysisType::COMPARE) ? argv[3] : "";
+
+        if (type == AnalysisType::HELP)
         {
             printHelpMenu(argv);
             exit(EXIT_SUCCESS);
         }
-        else if (type == AnalysisType::COMPARE)
-        {
-            if (argc < 4)
-            {
-                std::cerr << "[-] Error: Insufficient arguments provided for comparison.\n";
-                printHelpMenu(argv);
-                exit(EXIT_FAILURE);
-            }
-            const std::string &file = argv[2];
-            const std::string &file2 = argv[3];
-            analyzeMachOBinary(file, file2, type);
-        }
-        else
-        {
-            const std::string &file = argv[2];
-            analyzeMachOBinary(file, "", type);
-        }
+
+        analyzeMachOBinary(file1, file2, type);
     }
 
     Analyzer::AnalysisType Analyzer::setAnalysisType(char **argv)
     {
-        if (!argv[1]) // Defensive check in case argv[1] is null
+        // NOTE: If argv[1] is nullptr, it’s fine.
+        // But if argv[1] is an empty string (""),
+        // std::string(argv[1]) will be empty and still pass the check.
+        if (!argv[1] || std::strlen(argv[1]) == 0)
             return AnalysisType::INVALID;
 
+        static const std::unordered_map<std::string, AnalysisType> optionMap = {
+            {"-h", AnalysisType::HEADER},
+            {"--header", AnalysisType::HEADER},
+            {"-s", AnalysisType::SEGMENT},
+            {"--segment", AnalysisType::SEGMENT},
+            {"-y", AnalysisType::SYMBOL},
+            {"--symbol", AnalysisType::SYMBOL},
+            {"-d", AnalysisType::DISASSEMBLY},
+            {"--disassembly", AnalysisType::DISASSEMBLY},
+            {"-o", AnalysisType::OBFUSCATION},
+            {"--obfuscation", AnalysisType::OBFUSCATION},
+            {"-x", AnalysisType::HEX},
+            {"--hex", AnalysisType::HEX},
+            {"-c", AnalysisType::COMPARE},
+            {"--compare", AnalysisType::COMPARE},
+            {"--help", AnalysisType::HELP}};
+
         const std::string option(argv[1]);
-
-        if (option == "-h" || option == "--header")
-            return AnalysisType::HEADER;
-        if (option == "-s" || option == "--segment")
-            return AnalysisType::SEGMENT;
-        if (option == "-y" || option == "--symbol")
-            return AnalysisType::SYMBOL;
-        if (option == "-d" || option == "--disassembly")
-            return AnalysisType::DISASSEMBLY;
-        if (option == "-o" || option == "--obfuscation")
-            return AnalysisType::OBFUSCATION;
-        if (option == "-x" || option == "--hex")
-            return AnalysisType::HEX;
-        if (option == "-c" || option == "--compare")
-            return AnalysisType::COMPARE;
-        if (option == "--help")
-            return AnalysisType::HELP;
-
-        return AnalysisType::INVALID; // Should never reach this point!
+        auto it = optionMap.find(option);
+        return (it != optionMap.end()) ? it->second : AnalysisType::INVALID;
     } // !Analyzer::setAnalysisType
 
     void Analyzer::analyzeMachOBinary(const std::string &file,
@@ -377,97 +393,119 @@ namespace machXplorer
         }
 
         auto fileStream = openFileStream(file);
-
         std::cout << "[+] Starting obfuscation analysis...\n";
 
-        // **Step 1: Check for Stripped Symbols**
-        auto symbols = extractSymbolTable(file);
-        if (symbols.empty())
+        // **Step 1: Run all obfuscation checks**
+        std::vector<std::pair<std::string, bool>> checks = {
+            {"Symbols are stripped", checkStrippedSymbols(file)},
+            {"Mangled symbols detected", checkMangledSymbols(file)},
+            {"Excessive indirect calls", checkIndirectCalls(file)},
+            {"Unusual number of jump instructions", checkJumpInstructions(file)},
+            {"High-entropy sections (possible packing/encryption)", checkPackedSections(file)},
+            {"Suspicious dynamic API resolution", checkDynamicAPIUsage(file)},
+            {"High-entropy strings detected (possible string obfuscation)", checkObfuscatedStrings(file)}};
+
+        // **Step 2: Print Results**
+        bool detected = false;
+        for (const auto &[description, found] : checks)
         {
-            std::cout << "[!] Warning: Symbols are stripped, possible obfuscation detected.\n";
+            if (found)
+            {
+                std::cout << "[!] " << description << "\n";
+                detected = true;
+            }
         }
 
-        // **Step 2: Detect Mangled or Obfuscated Symbols**
+        if (!detected)
+            std::cout << "[+] No significant obfuscation detected.\n";
+
+        std::cout << "[+] Obfuscation analysis completed.\n";
+    } // !Analyzer::analyzeObfuscation
+
+    bool Analyzer::checkStrippedSymbols(const std::string &file)
+    {
+        auto symbols = extractSymbolTable(file);
+        return symbols.empty();
+    } // !Analyzer::checkStrippedSymbols
+
+    bool Analyzer::checkMangledSymbols(const std::string &file)
+    {
+        auto symbols = extractSymbolTable(file);
         std::regex mangledPattern("_Z[0-9A-Za-z_]+$"); // C++ Itanium ABI Mangled Names
-        int obfuscatedSymbols = 0;
+        int count = 0;
+
         for (const auto &symbol : symbols)
         {
             if (std::regex_match(symbol, mangledPattern))
-            {
-                obfuscatedSymbols++;
-            }
-        }
-        if (obfuscatedSymbols > 5) // Avoid false positives from normal C++ programs
-        {
-            std::cout << "[!] Multiple obfuscated symbols detected (" << obfuscatedSymbols << " symbols).\n";
+                count++;
         }
 
-        // **Step 3: Detect Hidden Function Calls (Indirect Calls)**
-        std::vector<std::string> disassembly = disassembleMachOFile(file);
-        int indirectCallCount = 0;
+        return count > 5; // Threshold to avoid false positives
+    } // !Analyzer::checkMangledSymbols
+
+    bool Analyzer::checkIndirectCalls(const std::string &file)
+    {
+        auto disassembly = disassembleMachOFile(file);
+        int count = 0;
 
         for (const auto &instruction : disassembly)
         {
             if (isIndirectCall(instruction))
-            {
-                indirectCallCount++;
-            }
+                count++;
         }
 
-        if (indirectCallCount > 10) // Set a reasonable threshold to reduce false positives
-        {
-            std::cout << "[!] Potential obfuscation: " << indirectCallCount << " indirect calls detected.\n";
-        }
+        return count > 10; // Threshold for suspicious activity
+    } // !Analyzer::checkIndirectCalls
 
-        // **Step 4: Detect Excessive Jump Instructions (Junk Code)**
+    bool Analyzer::checkJumpInstructions(const std::string &file)
+    {
+        auto disassembly = disassembleMachOFile(file);
         int jumpCount = countJumpInstructions(disassembly);
-        if (jumpCount > 100) // Increased threshold based on real-world samples
-        {
-            std::cout << "[!] Warning: Unusual number of jump instructions detected (" << jumpCount << ").\n";
-        }
+        return jumpCount > 100; // Threshold to detect junk code
+    } // !Analyzer::checkJumpInstructions
 
-        // **Step 5: Identify Packed or Encrypted Sections Using Entropy Analysis**
+    bool Analyzer::checkPackedSections(const std::string &file)
+    {
         auto segments = extractSegmentInfo(file);
+
         for (const auto &segment : segments)
         {
-            double entropy = calculateEntropy(segment.data);
-            if (entropy > 7.5) // High entropy suggests encryption or packing
-            {
-                std::cout << "[!] High-entropy section detected (" << segment.name << ") -> Possible packing/encryption.\n";
-            }
+            if (calculateEntropy(segment.data) > 7.5) // High entropy threshold
+                return true;
         }
 
-        // **Step 6: Scan for Dynamic API Resolution (Common in Obfuscation)**
+        return false;
+    } // !Analyzer::checkPackedSections
+
+    bool Analyzer::checkDynamicAPIUsage(const std::string &file)
+    {
         std::vector<std::string> dylibFunctions = extractDylibFunctions(file);
+
+        static const std::unordered_set<std::string> suspiciousFunctions = {
+            "dlopen", "dlsym", "objc_msgSend"};
+
         for (const auto &function : dylibFunctions)
         {
-            if (function == "dlopen" || function == "dlsym" || function == "objc_msgSend")
-            {
-                std::cout << "[!] Suspicious dynamic API resolution detected: " << function << "\n";
-            }
+            if (suspiciousFunctions.count(function))
+                return true;
         }
 
-        // **Step 7: Analyze String Table for Encrypted or XOR-Encoded Strings**
-        std::vector<std::string> strings = extractStrings(file);
+        return false;
+    } // !Analyzer::checkDynamicAPIUsage
+
+    bool Analyzer::checkObfuscatedStrings(const std::string &file)
+    {
+        auto strings = extractStrings(file);
         int highEntropyStrings = 0;
 
         for (const auto &str : strings)
         {
-            std::vector<uint8_t> strData(str.begin(), str.end());
-            double entropy = calculateEntropy(strData);
-            if (entropy > 7.0) // High-entropy strings are likely encrypted
-            {
+            if (calculateEntropy(std::vector<uint8_t>(str.begin(), str.end())) > 7.0)
                 highEntropyStrings++;
-            }
         }
 
-        if (highEntropyStrings > 10) // Avoid false positives by setting a threshold
-        {
-            std::cout << "[!] High-entropy strings detected (" << highEntropyStrings << "). Possible string obfuscation.\n";
-        }
-
-        std::cout << "[+] Obfuscation analysis completed.\n";
-    } // !Analyzer::analyzeObfuscation
+        return highEntropyStrings > 10; // Threshold for detecting obfuscated strings
+    } // !Analyzer::checkObfuscatedStrings
 
     std::vector<std::string> Analyzer::extractSymbolTable(const std::string &file)
     {
@@ -511,7 +549,7 @@ namespace machXplorer
     bool Analyzer::isIndirectCall(const std::string &instruction)
     {
         return instruction.find("call") != std::string::npos && instruction.find("[") != std::string::npos;
-    }
+    } // !Analyzer::isIndirectCall
 
     std::vector<std::string> Analyzer::disassembleMachOFile(const std::string &file)
     {

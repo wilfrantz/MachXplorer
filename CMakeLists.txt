@@ -10,11 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Target ARM64 architecture (Apple Silicon)
 set(CMAKE_OSX_ARCHITECTURES "arm64")
 
-# Use pkg-config to find Capstone
+# Use pkg-config to find Capstone and JSONCPP
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CAPSTONE REQUIRED capstone)
 
-# Error handling if Capstone is not found
+# Error handling if Capstone or JSONCPP is not found
 if(NOT CAPSTONE_FOUND)
     message(FATAL_ERROR "Capstone library not found! Install it using 'brew install capstone'.")
 endif()
@@ -28,13 +28,12 @@ add_executable(MachXplorer
 # Include directories
 target_include_directories(MachXplorer PUBLIC
     ${PROJECT_SOURCE_DIR}/include
-    /opt/homebrew/Cellar/capstone/5.0.3/include  
     ${CAPSTONE_INCLUDE_DIRS}
 )
 
-# Link Capstone library
-target_link_directories(MachXplorer PRIVATE ${CAPSTONE_LIBRARY_DIRS})
-target_link_libraries(MachXplorer PRIVATE ${CAPSTONE_LIBRARIES})
+# Link Capstone and JSON libraries
+target_link_directories(MachXplorer PRIVATE ${CAPSTONE_LIBRARY_DIRS} ${JSONCPP_LIBRARY_DIRS})
+target_link_libraries(MachXplorer PRIVATE ${CAPSTONE_LIBRARIES} )
 
 # Print debug info
 message(STATUS "Capstone include dirs: ${CAPSTONE_INCLUDE_DIRS}")
