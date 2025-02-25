@@ -1,0 +1,106 @@
+# MachXplorer
+
+**MachXplorer** is a CLI-based tool for analyzing Mach-O binaries on macOS, providing insights into headers, segments, symbols, and obfuscation techniques. It is designed for reverse engineers, security researchers, and developers working with ARM64 Mach-O binaries.
+
+## Features
+
+- **Header Analysis** (`-h, --header`): Extract and display Mach-O headers, load commands, and entry points.
+- **Segment Analysis** (`-s, --segment`): Analyze memory layout, permissions, and unusual flags.
+- **Symbol Analysis** (`-y, --symbol`): Detect hidden functions, obfuscated strings, or stripped symbols.
+- **Disassembly** (`-d, --disassembly`): Extract and analyze executable sections.
+- **Obfuscation Detection** (`-o, --obfuscation`): Identify common obfuscation patterns or suspicious modifications.
+- **Hex Dump & String Extraction** (`-x, --hex`): Provide a formatted hex dump with extracted strings.
+- **Binary Comparison** (`-c, --compare`): Compare two Mach-O binaries for integrity checks.
+
+## Installation
+
+### Prerequisites
+
+- macOS (ARM64 architecture)
+- Xcode command line tools
+- Capstone
+- `otool` and `llvm-objdump` (installed via Xcode or Homebrew)
+
+### Build Instructions
+
+```sh
+# Clone the repository
+git clone https://github.com/yourusername/MachXplorer.git
+cd MachXplorer
+
+# Compile the project
+mkdir build && cd build 
+cmake ..
+cmake --build .
+
+# Run MachXplorer
+./MachXplorer -h <file.macho>
+```
+
+## Usage
+
+### Basic Commands
+
+```sh
+# Extract Mach-O headers
+./MachXplorer -h file.macho
+
+# Analyze segments
+./MachXplorer -s file.macho
+
+# Detect hidden functions or stripped symbols
+./MachXplorer -y file.macho
+
+# Disassemble executable sections
+./MachXplorer -d file.macho
+
+# Identify obfuscation techniques
+./MachXplorer -o file.macho
+
+# Display formatted hex dump with extracted strings
+./MachXplorer -x file.macho
+
+# Compare two binaries for differences
+./MachXplorer -c file1.macho file2.macho
+```
+
+## Roadmap
+
+- **Header Analysis**: Completed
+- **Segment Analysis**: Completed
+- **Symbol Analysis**: Completed
+- **Disassembly**: In Progress
+- **Obfuscation Detection**: In Progress
+- **Hex Dump & String Extraction**: In Progress
+- **Binary Comparison**: In Progress
+
+## Ressource
+
+📌 macOS System Header Files
+ • Located on macOS at:
+
+```sh
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/mach-o/
+```
+
+📌 The art of Mac Malware Vol 1. by Patrick Wardle.
+
+These headers include:
+ • `mach-o/loader.h` (Load commands)
+ • `mach-o/nlist.h` (Symbol table structures)
+ • `mach-o/fat.h` (Fat binary structures)
+
+-
+
+## License
+
+This project is fully open-source under the **MIT License**.
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues, submit pull requests, or suggest enhancements.
+
+## Author
+
+- GitHub: [wilfrantz](https://github.com/wilfrantz)
+- Website: [machExplorer.com](https://machExplorer.com)

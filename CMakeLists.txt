@@ -16,19 +16,19 @@ pkg_check_modules(CAPSTONE REQUIRED capstone)
 
 # Error handling if Capstone or JSONCPP is not found
 if(NOT CAPSTONE_FOUND)
-    message(FATAL_ERROR "Capstone library not found! Install it using 'brew install capstone'.")
+	message(FATAL_ERROR "Capstone library not found! Install it using 'brew install capstone'.")
 endif()
 
 # Add the executable
 add_executable(MachXplorer
-    src/analyzer.cpp
-    src/main.cpp
+	src/analyzer.cpp
+	src/main.cpp
 )
 
 # Include directories
 target_include_directories(MachXplorer PUBLIC
-    ${PROJECT_SOURCE_DIR}/include
-    ${CAPSTONE_INCLUDE_DIRS}
+	${PROJECT_SOURCE_DIR}/include
+	${CAPSTONE_INCLUDE_DIRS}/..
 )
 
 # Link Capstone and JSON libraries
